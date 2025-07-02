@@ -1,6 +1,7 @@
 import pygame
 import random
 import sys
+import os
 from player import Player
 from sprites import AlcoholBottle, RogainBottle, GothMommy
 
@@ -61,6 +62,16 @@ class Game:
         # Font for UI
         self.font = pygame.font.Font(None, 36)
         self.small_font = pygame.font.Font(None, 24)
+        
+        # Load background image
+        assets_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "images")
+        bg_path = os.path.join(assets_dir, "stevebackground.jpg")  # Use correct file extension
+        try:
+            self.background = pygame.image.load(bg_path).convert()
+            # Scale background to 20x the screen size
+            self.background = pygame.transform.scale(self.background, (SCREEN_WIDTH * 20, SCREEN_HEIGHT * 20))
+        except Exception:
+            self.background = None
         
         self._init_platforms()
         
@@ -246,7 +257,16 @@ class Game:
     
     def draw(self, camera_offset=(0, 0)):
         offset_x, offset_y = camera_offset
-        self.screen.fill(BLACK)
+        # Draw scrolling background
+        if self.background:
+            bg_width = self.background.get_width()
+            bg_height = self.background.get_height()
+            # Clamp offset_x so we don't scroll past the background
+            max_offset_x = max(0, bg_width - SCREEN_WIDTH)
+            draw_x = min(offset_x, max_offset_x)
+            self.screen.blit(self.background, (-draw_x, 0))
+        else:
+            self.screen.fill(BLACK)
         
         # Draw ground
         pygame.draw.rect(self.screen, GRAY, (0 - offset_x, SCREEN_HEIGHT - 50 - offset_y, SCREEN_WIDTH, 50))
@@ -298,13 +318,15 @@ class Game:
             
             # Only update game if not game over
             if self.alcoholism < 100 and self.hair_growth < 100:
-                self.spawn_objects()
+                cam_x = getattr(self, 'last_cam_x', 0)
+                self.spawn_objects(cam_x)
                 self.update_objects()
                 self.check_collisions()
-                # Infinite world: spawn platforms ahead of player
                 self.spawn_platforms(self.player.rect.x)
-            
-            self.draw()
+            else:
+                cam_x = getattr(self, 'last_cam_x', 0)
+            self.draw(camera_offset=(cam_x, 0))
+            self.last_cam_x = cam_x
             self.clock.tick(FPS)
         
         pygame.quit()
